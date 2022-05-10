@@ -1,0 +1,38 @@
+@base <http://testfiles.org/mapping2/> .
+@prefix rr: <http://www.w3.org/ns/r2rml#>.
+@prefix rml: <http://semweb.mmlab.be/ns/rml#>.
+@prefix ql: <http://semweb.mmlab.be/ns/ql#>.
+@prefix ex: <http://example.com/ns#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix sd:     <http://www.w3.org/ns/sparql-service-description#>.
+
+<#InputSPARQL>
+    a sd:Service ;
+    sd:endpoint <http://localhost:3330/dataset> ;
+    sd:supportedLanguage sd:SPARQL11Query ;
+    sd:resultFormat <http://www.w3.org/ns/formats/SPARQL_Results_JSON> .
+
+# Body -> ?p ex:a ex:p
+# Body -> ?p ex:m ?n
+<Mapping2>
+    a rml:TriplesMap;
+    rml:logicalSource [
+          rml:source <#InputSPARQL>;
+          rml:referenceFormulation ql:JSONPath;
+          rml:iterator "$.results.bindings[*]";
+          rml:query """
+            PREFIX ex: <http://example.com/ns#>
+            SELECT ?mp ?mn WHERE { ?mp ex:n ?mn }
+            """
+      ];
+    rr:subjectMap [ rml:reference "mp.value" ];
+    rr:predicateObjectMap [
+                              rr:predicateMap [ rr:constant ex:a; rr:termType rr:IRI ] ;
+                              rr:objectMap [ rr:constant ex:p ; rr:termType rr:IRI ]
+                          ];
+    rr:predicateObjectMap [
+                              rr:predicateMap [ rr:constant ex:m; rr:termType rr:IRI ] ;
+                              rr:objectMap [ rml:reference "mn.value" ; rr:termType rr:IRI ]
+                          ].
+
