@@ -215,7 +215,7 @@ public class Rewriter extends TransformCopy {
         }
 
         // retrieve transitive closure of equalities
-
+        return new HashSet<>();
     }
 
     private Op applyRenaming(Map<String, String> renaming, Op op) {
