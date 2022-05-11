@@ -1,5 +1,6 @@
 package model;
 
+import org.apache.jena.base.Sys;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.core.Var;
 import org.jpl7.*;
@@ -19,7 +20,18 @@ public class PrologUtils {
 
         List<Term> unifies = new ArrayList<>();
         for (List<Term> pair: pairs)
-            unifies.add(new Compound("=", new Term[]{ pair.get(0), pair.get(1) }));
+            unifies.add(new Compound("=", new Term[]{pair.get(0), pair.get(1)}));
+
+        //TODO DEBUG
+//        System.out.println("NEW GOAL");
+//        for (Term term: unifies) {
+//            Query q = new Query(term);
+//            if (! q.hasSolution()) {
+//                System.out.println(term.arg(1));
+//                System.out.println(term.arg(2));
+//                System.out.println();
+//            }
+//        }
 
         return new Query(termListAsGoal(unifies));
     }
@@ -33,7 +45,7 @@ public class PrologUtils {
     public static Term stringAsCharTermList(String str) {
         List<Term> termArray = new ArrayList<>();
         for (char c: str.toCharArray())
-            termArray.add(new Atom(String.valueOf(c)));
+            termArray.add(new Atom(String.valueOf(c).toLowerCase()));
         return Term.termArrayToList(termArray.toArray(new Term[0]));
     }
 
