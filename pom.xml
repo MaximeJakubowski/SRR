@@ -41,5 +41,11 @@
             <artifactId>packages-jpl</artifactId>
             <version>V8.3.2</version>	<!-- version 7.6.1 of JPL -->
         </dependency>
+
+        <dependency>
+            <groupId>org.jgrapht</groupId>
+            <artifactId>jgrapht-core</artifactId>
+            <version>1.5.1</version>
+        </dependency>
     </dependencies>
 </project>

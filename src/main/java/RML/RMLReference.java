@@ -24,4 +24,9 @@ public class RMLReference {
     public Source getSource() {
         return source;
     }
+
+    @Override
+    public String toString() {
+        return reference;
+    }
 }

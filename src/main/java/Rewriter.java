@@ -1,6 +1,5 @@
 import RML.*;
 import model.*;
-import org.apache.jena.atlas.lib.NotImplemented;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.sparql.algebra.Op;
@@ -11,11 +10,15 @@ import org.apache.jena.sparql.core.BasicPattern;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.core.VarExprList;
 import org.apache.jena.sparql.expr.*;
-import model.NodeTermPair;
-import org.jpl7.Query;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.connectivity.ConnectivityInspector;
+import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.SimpleGraph;
 import org.jpl7.Term;
 
 import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class Rewriter extends TransformCopy {
     private final Set<Source> sources;
@@ -35,137 +38,131 @@ public class Rewriter extends TransformCopy {
     }
 
     private Op createRewrittenBGP(Map<Triple, UnrolledTriplesMap> candidate) {
-        Set<NodeTermPair> bindings = new HashSet<>();
-        Map<Triple, Set<NodeTermPair>> equalities = new HashMap<>();
+        Set<List<NodeTerm>> equalityConstraints = new HashSet<>();
+
         Map<Triple, Map<String, String>> renamings = new HashMap<>();
 
         for (Triple tp : candidate.keySet()) {
             Map<String, String> renaming = renameVariablesFresh(candidate.get(tp));
             renamings.put(tp, renaming); // remember renaming for every triple
 
-            Set<NodeTermPair> equality = new HashSet<>();
+            equalityConstraints.add(Arrays.asList(
+                    NodeTerm.create(tp.getSubject()),
+                    NodeTerm.create(candidate.get(tp).getSubjectMap()).renamed(renaming))
+            );
 
-            NodeTermPair subjectPair = new NodeTermPair(tp.getSubject(),
-                    applyRenaming(renaming, new FlatPTerm(candidate.get(tp).getSubjectMap())));
-            equality.add(subjectPair);
-            if (tp.getSubject().isVariable())
-                bindings.add(subjectPair);
+            equalityConstraints.add(Arrays.asList(
+                    NodeTerm.create(tp.getPredicate()),
+                    NodeTerm.create(candidate.get(tp).getPredicateObjectMap().getPredicate()).renamed(renaming))
+            );
 
-            NodeTermPair predicatePair = new NodeTermPair(tp.getPredicate(),
-                    applyRenaming(renaming, new FlatPTerm(candidate.get(tp)
-                            .getPredicateObjectMap()
-                            .getPredicate())));
-            equality.add(predicatePair);
-            if (tp.getPredicate().isVariable() && differentName(tp.getPredicate(), tp.getSubject()))
-                bindings.add(predicatePair);
-
-            NodeTermPair objectPair = new NodeTermPair(tp.getObject(),
-                    applyRenaming(renaming, new FlatPTerm(candidate.get(tp)
-                            .getPredicateObjectMap()
-                            .getObject())));
-            equality.add(objectPair);
-            if (tp.getObject().isVariable() &&
-                    differentName(tp.getObject(), tp.getSubject()) &&
-                    differentName(tp.getObject(), tp.getPredicate()))
-                bindings.add(objectPair);
-
-            equalities.put(tp, equality);
+            equalityConstraints.add(Arrays.asList(
+                    NodeTerm.create(tp.getObject()),
+                    NodeTerm.create(candidate.get(tp).getPredicateObjectMap().getObject()).renamed(renaming))
+            );
         }
-        if (!satisfiableMatching(unionOf(equalities.values())))
+
+        if (!satisfiableMatching(equalityConstraints))
             return AlgebraUtils.emptyQuery();
 
-        return buildQuery(equalities, bindings, candidate, renamings);
+        return buildQuery(equalityConstraints, candidate, renamings);
     }
 
-    private Set<NodeTermPair> unionOf(Collection<Set<NodeTermPair>> pairsets) {
-        Set<NodeTermPair> npairs = new HashSet<>();
-        for (Set<NodeTermPair> pairs: pairsets)
-            npairs.addAll(pairs);
-        return npairs;
-    }
 
-    private Op buildQuery(Map<Triple, Set<NodeTermPair>> equalities, Set<NodeTermPair> bindings,
+    private Op buildQuery(Set<List<NodeTerm>> equalityConstraints,
                           Map<Triple, UnrolledTriplesMap> match, Map<Triple, Map<String, String>> renamings) {
+        List<Set<List<NodeTerm>>> filterBindingEq = getFilterAndBindEqualities(equalityConstraints);
+
+        Set<List<NodeTerm>> filterEqualities = filterBindingEq.get(0);
+        Set<List<NodeTerm>> bindingEqualities = filterBindingEq.get(1);
 
         Set<Op> tojoin = new HashSet<>();
         for (Triple tp : match.keySet())
-            tojoin.add(
-                    OpFilter.filterBy(createFilterEqualities(equalities.get(tp)),
-                            applyRenaming(
-                                    renamings.get(tp),
-                                    ((SPARQLSource) match.get(tp).getSource()).getQuery().getQueryOp()
-                            )
-                    )
-            );
+            tojoin.add(applyRenaming(renamings.get(tp),
+                    ((SPARQLSource) match.get(tp).getSource()).getQuery().getQueryOp()
+            ));
 
-        Op rewrittenBGP = AlgebraUtils.makeJoin(tojoin);
+        Op rewrittenBGP = OpFilter.filterBy(
+                createFilterEqualities(filterEqualities),
+                AlgebraUtils.makeJoin(tojoin));
         // if no vars, select *; otherwise select vars(renaming)
         if (renamings.values().stream().allMatch(renaming -> renaming.keySet().isEmpty())) //there were no variables
             return rewrittenBGP;
-        return createProjectionRenaming(bindings, rewrittenBGP);
+
+        return createProjectionRenaming(bindingEqualities, rewrittenBGP);
     }
 
-    private ExprList createFilterEqualities(Set<NodeTermPair> equalities) {
-        // the filter equalities. they should be "optimized", i.e., in their most simple form (prolog)
-        // TODO: this is too naive. sometimes there is an eqiality of the form "?x = ?rvar1, ?x = ?rvar2"
-        //  In that case, the filter "?rvar1 = ?rvar2" must be added. At the moment it adds nothing
+    private List<Set<List<NodeTerm>>> getFilterAndBindEqualities(Set<List<NodeTerm>> equalities) {
+        // We assume equalities is SAT
+        // element 1: returns a subset of the equalities that represent the filter statements
+        // element 2: returns a subset of the equalities that represent the bind statements
+        // convention: the first element of the list is always a user query NodeTerm
+        //             the second element of the list is always a mapping body NodeTerm
+        Graph<NodeTerm, DefaultEdge> eqGraph = new SimpleGraph<>(DefaultEdge.class);
+        Set<NodeTerm> uqNodeTerms = new HashSet<>();
+        for (List<NodeTerm> eq: equalities) {
+            // ignore self-loops: equality on identical elements
+            if (eq.get(0).equals(eq.get(1)))
+                continue;
+            uqNodeTerms.add(eq.get(0));
+            eqGraph.addVertex(eq.get(0));
+            eqGraph.addVertex(eq.get(1));
+            eqGraph.addEdge(eq.get(0), eq.get(1));
+        }
+
+        Set<List<NodeTerm>> filterEqualities = new HashSet<>();
+        Set<List<NodeTerm>> bindingEqualities = new HashSet<>();
+        for (Set<NodeTerm> connectedComponent:
+                (new ConnectivityInspector<>(eqGraph)).connectedSets()) {
+            List<NodeTerm> ccuqNodeTerms = connectedComponent.stream()
+                    .filter(uqNodeTerms::contains)
+                    .collect(Collectors.toList());
+            List<NodeTerm> bodyNodeTerms = connectedComponent.stream()
+                    .filter(Predicate.not(uqNodeTerms::contains))
+                    .collect(Collectors.toList());
+
+            // All the NodeTerms the body of the mapping + all the non-var nodes from the uq
+            // need to be equal for one connected component
+            List<NodeTerm> equalNodeTerms = new ArrayList<>(bodyNodeTerms);
+            for (NodeTerm nodeTerm: ccuqNodeTerms)
+                if (nodeTerm.isVariable())
+                    bindingEqualities.add(Arrays.asList(nodeTerm, bodyNodeTerms.get(0)));
+                else
+                    equalNodeTerms.add(nodeTerm);
+
+            for (int i = 1; i < equalNodeTerms.size(); i++) // only filter if uq variable acts as intermediary
+                filterEqualities.add(Arrays.asList(equalNodeTerms.get(i - 1), equalNodeTerms.get(i)));
+        }
+
+        return Arrays.asList(filterEqualities, bindingEqualities);
+    }
+
+    private ExprList createFilterEqualities(Set<List<NodeTerm>> equalities) {
         ExprList exprList = new ExprList();
-        for (NodeTermPair npair : equalities)
-            if (! npair.getNode().isVariable() )
-                exprList.add(new E_Equals(
-                        nodeAsExpr(npair.getNode()),
-                        npair.getTerm().flatPTermAsExpr())
-                );
+        for (List<NodeTerm> eq : equalities)
+            exprList.add(new E_Equals(
+                    eq.get(0).asJenaExpr(),
+                    eq.get(1).asJenaExpr()
+            ));
         return exprList;
     }
 
-    private Expr nodeAsExpr(Node node) {
-        // This node can be a variable, or an RDF term
-        // output corresponding Expr object
-
-        if (node.isVariable())
-            return new ExprVar(Var.alloc(node));
-
-        if (node.isBlank())
-            throw new NotImplemented("no support for blank nodes");
-
-        // node is URI or literal
-        return NodeValue.makeNode(node);
-    }
-
-    private Op createProjectionRenaming(Set<NodeTermPair> bindings, Op op) {
+    private Op createProjectionRenaming(Set<List<NodeTerm>> bindings, Op op) {
         // the "AS" filter
-        // the node in these nodetermpair must be variables
+        // convention: the first element of List<NodeTerm> is a user query NodeTerm and a variable
+        //             the second element is whatever
         VarExprList varExprList = new VarExprList();
-        for (NodeTermPair npair : bindings) {
-            Var targetvar = Var.alloc(npair.getNode());
-            if (!varExprList.contains(targetvar)) // multiple equalities can occur (in join) but must not be renamings
-                varExprList.add(targetvar, npair.getTerm().flatPTermAsExpr());
-        }
+        for (List<NodeTerm> binding: bindings)
+            if (binding.get(0).isVariable())
+                varExprList.add(
+                        (Var) binding.get(0).asNode(),
+                        binding.get(1).asJenaExpr()
+                );
+
         return OpExtend.create(op, varExprList);
     }
 
-    private Set<String> getTripleVariables(Triple tp) {
-        Set<String> vars = new HashSet<>();
-        if (tp.getSubject().isVariable())
-            vars.add(tp.getSubject().getName());
-        if (tp.getPredicate().isVariable())
-            vars.add(tp.getPredicate().getName());
-        if (tp.getObject().isVariable())
-            vars.add(tp.getObject().getName());
-        return vars;
-    }
-
-    private Map<String, String> restrictRenaming(Map<String, String> renaming,
-                                                 Set<String> restriction) {
-        Map<String, String> restrictedRenaming = new HashMap<>();
-        for (String nvar : renaming.keySet())
-            if (restriction.contains(nvar))
-                restrictedRenaming.put(nvar, renaming.get(nvar));
-        return restrictedRenaming;
-    }
-
-    private boolean satisfiableMatching(Set<NodeTermPair> equalities) {
+    private boolean satisfiableMatching(Set<List<NodeTerm>> equalities) {
         // test with prolog if the equalities can hold
         org.jpl7.Query goal = PrologUtils.equalityQueryFrom(equalities);
         Map<String, Term> solution = goal.oneSolution();
@@ -178,62 +175,10 @@ public class Rewriter extends TransformCopy {
         return node1.getName().equals(node2.getName());
     }
 
-    private Set<NodeTermPair> optimizeEqualities(Set<NodeTermPair> equalities) {
-        // BEWARE: This function assumes that the equalities !!are satisfiable!!
-        // inject transitive closure program 'tc/2'
-        Query program = new Query("""
-                assert(eq(A,B) :- eq(B,A)).
-                assert(tc(A,B) :- eq(A,B)),
-                assert(tc(A,B) :- ','(eq(A,C), eq(C,B))).
-                """
-        );
-        program.hasSolution();
-
-        // inject equality facts
-        int symbol = 0;
-        Map<Node, Integer> nodeSymbols = new HashMap<>();
-        Map<FlatPTerm, Integer> ptermSymbols = new HashMap<>();
-
-        for (NodeTermPair npair: equalities) {
-            if (! nodeSymbols.containsKey(npair.getNode()))
-                nodeSymbols.put(npair.getNode(), symbol++);
-            if (! ptermSymbols.containsKey(npair.getTerm()))
-                ptermSymbols.put(npair.getTerm(), symbol++);
-        }
-
-        Set<List<Integer>> encodedEqualities = new HashSet<>();
-        for (NodeTermPair npair: equalities)
-            encodedEqualities.add(
-                    Arrays.asList(
-                            nodeSymbols.get(npair.getNode()),
-                            ptermSymbols.get(npair.getTerm()))
-            );
-
-        for (List<Integer> inteq: encodedEqualities) {
-            Query assertfact = new Query(String.format("assert(eq(%s,%s))", inteq.get(0), inteq.get(1)));
-            assertfact.hasSolution();
-        }
-
-        // retrieve transitive closure of equalities
-        return new HashSet<>();
-    }
-
     private Op applyRenaming(Map<String, String> renaming, Op op) {
         return Transformer.transform(new VariableRenamer(renaming), op);
     }
 
-    public FlatPTerm applyRenaming(Map<String, String> renaming, FlatPTerm pterm) {
-        // rename all according to renaming. If var not in dom(renaming), keep var
-        List<Object> renamedStructure = new ArrayList<>();
-
-        for (Object obj : pterm.getStructure())
-            if (obj instanceof Var && renaming.containsKey(((Var) obj).getVarName()))
-                renamedStructure.add(Var.alloc(renaming.get(((Var) obj).getVarName())));
-            else
-                renamedStructure.add(obj);
-
-        return new FlatPTerm(renamedStructure, pterm.isIRI(), pterm.isLiteral(), pterm.isBlank());
-    }
 
     private Map<String, String> renameVariablesFresh(UnrolledTriplesMap tmap) {
         Map<String, String> renaming = new HashMap<>();

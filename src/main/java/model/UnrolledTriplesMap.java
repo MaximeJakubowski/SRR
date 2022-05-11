@@ -1,9 +1,7 @@
 package model;
 
-import RML.PredicateObjectMap;
-import RML.RMLReference;
-import RML.Source;
-import RML.TermMap;
+import RML.*;
+import org.apache.jena.sparql.algebra.op.OpProject;
 import org.apache.jena.sparql.core.Var;
 
 import java.util.HashSet;
@@ -22,14 +20,9 @@ public class UnrolledTriplesMap {
     }
 
     public Set<Var> getAllVariables() {
-        Set<Var> ret = new HashSet<>();
-        for (RMLReference ref: subjectMap.getReferences())
-            ret.add(Var.alloc(ref.getReference()));
-        for (RMLReference ref: predicateObjectMap.getPredicate().getReferences())
-            ret.add(Var.alloc(ref.getReference()));
-        for (RMLReference ref: predicateObjectMap.getObject().getReferences())
-            ret.add(Var.alloc(ref.getReference()));
-        return ret;
+        // the mapping body are always project queries
+        OpProject projectOp = (OpProject) ((SPARQLSource) source).getQuery().getQueryOp();
+        return new HashSet<>(projectOp.getVars());
     }
 
     public TermMap getSubjectMap() {
