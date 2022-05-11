@@ -6,7 +6,7 @@ import java.sql.Ref;
 import java.util.Collections;
 
 public class ReferenceValuedTermMap extends TermMap {
-    private RMLReference reference;
+    private final RMLReference reference;
 
     public ReferenceValuedTermMap(String reference, Source source, boolean iri, boolean literal, boolean blank) {
         this(new RMLReference(reference, source), iri, literal, blank);

@@ -9,7 +9,7 @@ public class TriplesMap {
     private final String id;
     private final TermMap subject;
     private final Set<PredicateObjectMap> predicateObjectMaps;
-    private Source source;
+    private final Source source;
 
     public TriplesMap(String id, Source source, TermMap subject, Set<PredicateObjectMap> predicateObjectMaps) {
         this.id = id;

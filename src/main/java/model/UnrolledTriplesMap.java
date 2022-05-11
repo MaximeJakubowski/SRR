@@ -9,9 +9,9 @@ import java.util.Set;
 
 // Represents "a single mapping"
 public class UnrolledTriplesMap {
-    private TermMap subjectMap;
-    private PredicateObjectMap predicateObjectMap;
-    private Source source;
+    private final TermMap subjectMap;
+    private final PredicateObjectMap predicateObjectMap;
+    private final Source source;
 
     public UnrolledTriplesMap(TermMap subjectMap, PredicateObjectMap predicateObjectMap, Source source) {
         this.subjectMap = subjectMap;
