@@ -1,0 +1,84 @@
+@prefix rml:  <http://semweb.mmlab.be/ns/rml#> .
+@prefix rr: <http://www.w3.org/ns/r2rml#> .
+@prefix ql: <http://semweb.mmlab.be/ns/ql#> .
+@prefix qst:  <https://vito.be/schema/qst#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix sd:     <http://www.w3.org/ns/sparql-service-description#>.
+@prefix sur:  <https://w3id.org/survey-ontology#>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix ggdm: <https://vito.be/schema/ggdm#>.
+@prefix : <http://www.example.org/coney/>.
+
+#####################
+# Coney source
+#####################
+
+:sparqlService a sd:Service ;
+  sd:endpoint <http://localhost:3330/sparql> ;
+  sd:supportedLanguage sd:SPARQL11Query ;
+  sd:resultFormat <http://www.w3.org/ns/formats/SPARQL_Results_JSON> .
+
+:diabetesSource a rml:LogicalSource ;
+  rml:source :sparqlService ;
+  rml:referenceFormulation ql:JSONPath ;
+  rml:iterator "$.results.bindings[*]" ;
+  rml:query 
+"""prefix ggdm: <https://vito.be/schema/ggdm#> 
+prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> 
+prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+prefix owl:  <http://www.w3.org/2002/07/owl#> 
+prefix xsd:  <http://www.w3.org/2001/XMLSchema#> 
+prefix sur:  <https://w3id.org/survey-ontology#> 
+prefix prov: <http://www.w3.org/ns/prov#> 
+
+SELECT 
+?question ?completedQuestion ?answer ?date ?person ?session
+WHERE { 
+  ?session ggdm:sessionTimestamp ?date ;
+    prov:wasAssociatedWith ?person .
+  ?completedQuestion sur:answeredIn ?session ;
+    sur:hasAnswer ?answer ;
+    sur:completesQuestion ?question .
+  FILTER (!strends(str(?question), "question2"))
+}""" .
+
+:completedQuestionTriplesMap a rr:TriplesMap ;
+  rml:logicalSource :diabetesSource ;
+  rr:subjectMap [
+    rml:reference "completedQuestion.value" ;
+    rr:termType rr:IRI ] ;
+  rr:predicateObjectMap [
+    rr:predicate sur:answeredIn ;
+    rr:objectMap [
+      rml:reference "session.value" ;
+      rr:termType rr:IRI ] ] ;
+  rr:predicateObjectMap [
+    rr:predicate sur:hasAnswer ;
+    rr:objectMap [
+      rml:reference "answer.value" ;
+      rr:termType rr:IRI ] ] ;
+  rr:predicateObjectMap [
+    rr:predicate sur:completesQuestion ;
+    rr:objectMap [
+      rml:reference "question.value" ;
+      rr:termType rr:IRI ] ] .
+
+:sessionTriplesMap a rr:TriplesMap ;
+  rml:logicalSource :diabetesSource ;
+  rr:subjectMap [
+    rml:reference "session.value" ;
+    rr:termType rr:IRI ] ;
+  rr:predicateObjectMap [
+    rr:predicate ggdm:sessionTimestamp ;
+    rr:objectMap [
+      rml:reference "date.value" ;
+      rr:datatype xsd:date ] ] ;
+  rr:predicateObjectMap [
+    rr:predicate prov:wasAssociatedWith ;
+    rr:objectMap [
+      rml:reference "person.value" ;
+      rr:termType rr:IRI ] ] .
+

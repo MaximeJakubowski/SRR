@@ -1,0 +1,91 @@
+@prefix rml:  <http://semweb.mmlab.be/ns/rml#> .
+@prefix rr: <http://www.w3.org/ns/r2rml#> .
+@prefix ql: <http://semweb.mmlab.be/ns/ql#> .
+@prefix qst:  <https://vito.be/schema/qst#> .
+@prefix ggdm: <https://vito.be/schema/ggdm#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix sur:  <https://w3id.org/survey-ontology#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix :     <http://example.com/ggdmmapping/> .
+@prefix sd:     <http://www.w3.org/ns/sparql-service-description#>.
+
+#####################
+# Diabetes source
+#####################
+
+:sparqlService a sd:Service ;
+  sd:endpoint <http://localhost:3330/sparql> ;
+  sd:supportedLanguage sd:SPARQL11Query ;
+  sd:resultFormat <http://www.w3.org/ns/formats/SPARQL_Results_JSON> .
+
+:diabetesSource a rml:LogicalSource ;
+  rml:source :sparqlService ;
+  rml:referenceFormulation ql:JSONPath ;
+  rml:iterator "$.results.bindings[*]" ;
+  rml:query 
+"""prefix fhir: <http://hl7.org/fhir/> 
+prefix owl: <http://www.w3.org/2002/07/owl#> 
+prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> 
+prefix sct: <http://snomed.info/id/> 
+prefix xsd: <http://www.w3.org/2001/XMLSchema#> 
+prefix ggdm: <https://vito.be/schema/ggdm#> 
+
+SELECT 
+?answer ?date
+WHERE { 
+  {} OPTIONAL 
+  {
+    ?c a fhir:Condition ;
+      fhir:Condition.code [
+        fhir:CodeableConcept.coding [
+          a ?fhirConditionCodingClass ;
+          fhir:Coding.system [ fhir:value ?fhirConditionCodingSystemValue ] ;
+          fhir:Coding.code [ fhir:value "73211009" ] ;
+          fhir:Coding.display [ fhir:value ?fhirConditionCodingDisplayValue ] ;
+        ] ;
+      ] ;
+      fhir:Condition.subject [ fhir:link ?fhirConditionSubjectLink ] ;
+      fhir:Condition.onsetDateTime [ fhir:value ?fhirConditionOnsetDateTimeValue ] . 
+  } .
+  BIND(IF(BOUND(?fhirConditionOnsetDateTimeValue),?fhirConditionOnsetDateTimeValue,concat(str(day(now())),"-",str(month(now())),"-",str(year(now())))) AS ?date)
+  BIND(IF(BOUND(?fhirConditionOnsetDateTimeValue),ggdm:yes,ggdm:no) AS ?answer)
+}""" .
+
+:completedQuestionTriplesMap a rr:TriplesMap ;
+  rml:logicalSource :diabetesSource ;
+  rr:subjectMap [
+    rr:template "completed_question_2_on_{date.value}" ;
+    # rr:class :<class> ; # Is there a class for completed questions? If yes fill in, if no remove line
+    rr:termType rr:BlankNode ] ;
+  rr:predicateObjectMap [
+    rr:predicate sur:answeredIn ;
+    rr:objectMap [
+      rr:template "session_on_{date.value}" ;
+      rr:termType rr:BlankNode ] ] ;
+  rr:predicateObjectMap [
+    rr:predicate sur:hasAnswer ;
+    rr:objectMap [
+      rml:reference "answer.value" ;
+      rr:termType rr:IRI ] ] ;
+  rr:predicateObjectMap [
+    rr:predicate sur:completesQuestion ;
+    rr:object ggdm:question2 ] .
+
+:sessionTriplesMap a rr:TriplesMap ;
+  rml:logicalSource :diabetesSource ;
+  rr:subjectMap [
+    rr:template "session_on_{date.value}" ;
+    rr:class sur:SurveyCompletionTask ;
+    rr:termType rr:BlankNode ] ;
+  rr:predicateObjectMap [
+    rr:predicate ggdm:sessionTimeStamp ;
+    rr:objectMap [
+      rml:reference "date.value" ;
+      rr:datatype xsd:date ] ] ;
+  rr:predicateObjectMap [
+    rr:predicate prov:wasAssociatedWith ;
+    rr:object :me ] .
+
