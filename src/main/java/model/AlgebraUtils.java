@@ -29,7 +29,7 @@ public class AlgebraUtils {
     //makes nested union of >=1 operators
     public static Op makeUnion(Collection<Op> operators) {
         if (operators.isEmpty()) {
-            return OpNull.create();
+            return AlgebraUtils.emptyQuery();
         }
         int count = 0;
         Op unionedOp = null;
