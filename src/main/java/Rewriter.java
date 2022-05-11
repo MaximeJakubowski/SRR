@@ -2,6 +2,8 @@ import RML.*;
 import model.*;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
+import org.apache.jena.query.QueryFactory;
+import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.TransformCopy;
 import org.apache.jena.sparql.algebra.Transformer;
@@ -10,6 +12,7 @@ import org.apache.jena.sparql.core.BasicPattern;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.core.VarExprList;
 import org.apache.jena.sparql.expr.*;
+import org.apache.jena.sparql.syntax.syntaxtransform.QueryTransformOps;
 import org.jgrapht.Graph;
 import org.jgrapht.alg.connectivity.ConnectivityInspector;
 import org.jgrapht.graph.DefaultEdge;
@@ -19,6 +22,7 @@ import org.jpl7.Term;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Rewriter extends TransformCopy {
     private final Set<Source> sources;
@@ -32,8 +36,11 @@ public class Rewriter extends TransformCopy {
     public Op transform(OpBGP opBGP) {
         Set<Op> unionSubqueries = new HashSet<>();
         List<Map<Triple, UnrolledTriplesMap>> candidates = generateMappingCandidates(opBGP.getPattern());
-        for (Map<Triple, UnrolledTriplesMap> candidate : candidates)
-            unionSubqueries.add(createRewrittenBGP(candidate));
+        for (Map<Triple, UnrolledTriplesMap> candidate : candidates) {
+            Op rewrittenBGP = createRewrittenBGP(candidate);
+            if (rewrittenBGP != null)
+                unionSubqueries.add(rewrittenBGP);
+        }
         return AlgebraUtils.makeUnion(unionSubqueries);
     }
 
@@ -63,7 +70,7 @@ public class Rewriter extends TransformCopy {
         }
 
         if (!satisfiableMatching(equalityConstraints))
-            return AlgebraUtils.emptyQuery();
+            return null; // Jena: OpUnion.create(...) drops null (as does join)
 
         return buildQuery(equalityConstraints, candidate, renamings);
     }
@@ -78,8 +85,9 @@ public class Rewriter extends TransformCopy {
 
         Set<Op> tojoin = new HashSet<>();
         for (Triple tp : match.keySet())
-            tojoin.add(applyRenaming(renamings.get(tp),
-                    ((SPARQLSource) match.get(tp).getSource()).getQuery().getQueryOp()
+            tojoin.add(applyRenaming(
+                    renamings.get(tp),
+                    ((SPARQLSource) match.get(tp).getSource()).getQuery().getQueryString()
             ));
 
         Op rewrittenBGP = OpFilter.filterBy(
@@ -169,14 +177,12 @@ public class Rewriter extends TransformCopy {
         return solution != null;
     }
 
-    private boolean differentName(Node node1, Node node2) {
-        if (!(node1.isVariable() && node2.isVariable()))
-            return true;
-        return node1.getName().equals(node2.getName());
-    }
+    private Op applyRenaming(Map<String, String> renaming, String query) {
+        Map<Var, Var> varrename = new HashMap<>();
+        for (String key: renaming.keySet())
+            varrename.put(Var.alloc(key), Var.alloc(renaming.get(key)));
 
-    private Op applyRenaming(Map<String, String> renaming, Op op) {
-        return Transformer.transform(new VariableRenamer(renaming), op);
+        return Algebra.compile(QueryTransformOps.transform(QueryFactory.create(query), varrename));
     }
 
 
@@ -203,7 +209,10 @@ public class Rewriter extends TransformCopy {
                     );
 
         List<Map<Triple, UnrolledTriplesMap>> candidates = new ArrayList<>();
-        for (List<Integer> assignmentVector: generateAssignmentVectors(bp.size(), unrolledTriplesMaps.size()-1)) // minus one because the maxval will function as an index
+        List<List<Integer>> assignmentVectors = generateAssignmentVectors(bp.size(), unrolledTriplesMaps.size());
+        //TODO DEBUG
+        System.out.printf("THERE ARE %s ASSIGNMENT VECTORS%n", assignmentVectors.size());
+        for (List<Integer> assignmentVector: assignmentVectors) // minus one because the maxval will function as an index
             candidates.add(createMappingCandidate(bp.getList(), unrolledTriplesMaps, assignmentVector));
 
         return candidates;
@@ -216,30 +225,23 @@ public class Rewriter extends TransformCopy {
         return candidate;
     }
 
-    private Set<List<Integer>> generateAssignmentVectors(Integer length, Integer maxVal) {
-        // Just a generalized counter: generates maxVal^length amount of vectors counting
-        // from the zero vector to the maxVal vector
+    private List<List<Integer>> generateAssignmentVectors(Integer length, Integer maxVal) {
+        List<List<Integer>> ret = new ArrayList<>();
+        if (length == 1) {
+            for (int i = 0; i < maxVal; i++)
+                ret.add(Collections.singletonList(i));
+            return ret;
+        }
 
-        Set<List<Integer>> vectors = new HashSet<>();
+        List<List<Integer>> avs = generateAssignmentVectors(length - 1, maxVal);
 
-        List<Integer> assignmentVector = new ArrayList<>();
-        for (int i = 0; i < length; i++)
-            assignmentVector.add(0);
-
-        vectors.add(assignmentVector);
-        for (int i = 0; i < Math.pow(maxVal,length); i++)
-            vectors.add(addOneAV(maxVal, assignmentVector));
-
-        return vectors;
-    }
-
-    private List<Integer> addOneAV(Integer maxVal, List<Integer> vector) {
-        List<Integer> ret = new ArrayList<>(vector);
-        for (int index = 0; index < ret.size(); index++)
-            if (index < maxVal) {
-                ret.set(index, ret.get(index) + 1);
-                break;
+        for (int i = 0; i < maxVal; i++)
+            for (List<Integer> partVector: avs) {
+                List<Integer> vector = new ArrayList<>(partVector);
+                vector.add(i);
+                ret.add(vector);
             }
+
         return ret;
     }
 }

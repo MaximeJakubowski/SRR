@@ -10,10 +10,14 @@ import org.apache.jena.sparql.core.Var;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleGraph;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -46,7 +50,7 @@ public class RewriterTest {
         Op rewrittenQuery = Transformer.transform(new Rewriter(parser.getSourceSet()), userquery);
 
         System.out.println("\nINPUT QUERY:\n============");
-        System.out.println(inputquery);
+        System.out.println(OpAsQuery.asQuery(userquery));
         System.out.println("REWRITTEN QUERY:\n===============");
         System.out.println(OpAsQuery.asQuery(rewrittenQuery));
     }
@@ -69,21 +73,21 @@ public class RewriterTest {
                 SELECT %s WHERE { %s %s %s }
                 """, select, subject, predicate, object);
 
-        rewriteTest("src/test/resources/mapping1.ttl", userqueryInput);
+        rewriteTest("src/test/resources/mapping1.rml.ttl", userqueryInput);
     }
 
     @Test
-    public void joinTest() {
+    void joinTest() {
         String userqueryInput = """
                 PREFIX ex: <http://example.com/ns#>
                 SELECT ?m ?p ?e WHERE { ?m ex:a ex:p . ?m ?p ?e }
                 """;
 
-        rewriteTest("src/test/resources/mapping2.ttl", userqueryInput);
+        rewriteTest("src/test/resources/mapping2.rml.ttl", userqueryInput);
     }
 
     @Test
-    public void nameTest() {
+    void nameTest() {
         NodeTerm one = NodeTerm.create(Var.alloc("m"));
         NodeTerm two = NodeTerm.create(Var.alloc("m"));
 
@@ -92,6 +96,26 @@ public class RewriterTest {
         g.addVertex(one);
         g.addVertex(two);
         assert one.equals(two);
+    }
+
+    @Test
+    void coneyPrivacyTest() {
+        try {
+            String queryString = Files.readString(Paths.get("src/test/resources/all-answers.rq"));
+            rewriteTest("src/test/resources/coney-privacy.rml.ttl", queryString);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    void fhirConeyTest() {
+        try {
+            String queryString = Files.readString(Paths.get("src/test/resources/all-answers.rq"));
+            rewriteTest("src/test/resources/fhir-coney.rml.ttl", queryString);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
