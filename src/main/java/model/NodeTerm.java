@@ -232,7 +232,7 @@ public class NodeTerm {
         for (Object obj : this.structure)
             if (obj instanceof String)
                 for (char c: ((String) obj).toCharArray())
-                    termList.add(new Atom(String.valueOf(c)));
+                    termList.add(new Atom(String.valueOf(c).toLowerCase()));
             else if (obj instanceof Var)
                 return new Compound(type, new Term[] {
                         PrologUtils.listtermToDifferenceList(
