@@ -211,7 +211,7 @@ public class Rewriter extends TransformCopy {
         List<Map<Triple, UnrolledTriplesMap>> candidates = new ArrayList<>();
         List<List<Integer>> assignmentVectors = generateAssignmentVectors(bp.size(), unrolledTriplesMaps.size());
         //TODO DEBUG
-        System.out.printf("THERE ARE %s ASSIGNMENT VECTORS%n", assignmentVectors.size());
+        //System.out.printf("THERE ARE %s ASSIGNMENT VECTORS%n", assignmentVectors.size());
         for (List<Integer> assignmentVector: assignmentVectors) // minus one because the maxval will function as an index
             candidates.add(createMappingCandidate(bp.getList(), unrolledTriplesMaps, assignmentVector));
 
