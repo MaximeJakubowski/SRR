@@ -197,8 +197,9 @@ public class NodeTerm {
             if (node.isVariable())
                 return new ExprVar(Var.alloc(node));
 
-            if (node.isBlank())
-                throw new NotImplemented("no support for blank nodes");
+            // for blank nodes, also NodeValue.makeNode(node)
+            //if (node.isBlank())
+            //    throw new NotImplemented("no support for blank nodes");
 
             // node is URI or literal
             return NodeValue.makeNode(node);
@@ -215,6 +216,8 @@ public class NodeTerm {
         E_StrConcat concat = new E_StrConcat(exprList);
         if (this.type == GenType.URI)
             return new E_IRI(concat);
+        else if (this.type == GenType.BLANK)
+            return new E_BNode(concat);
         return concat;
     }
 
