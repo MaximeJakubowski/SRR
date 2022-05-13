@@ -12,3 +12,6 @@ This software uses four libraries:
 + JPL7 to interface with SWI-Prolog
 + JGraphT for some graph analysis used in the rewriting
 + PicoCLI for the Command Line Interface (embedded source code)
+
+## Credits
+Thomas Delva for the original RML package
