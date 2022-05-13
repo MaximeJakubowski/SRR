@@ -54,14 +54,4 @@ public class Source {
     public int hashCode() {
         return Objects.hash(id);
     }
-
-    //sends triple to wrapper of this source; empty placeholder
-    public Op makeSubQuery(Triple triple) {
-        OpBGP bgp = new OpBGP();
-        OpService service = new OpService(NodeFactory.createURI(this.getEndpoint()),
-                bgp, false);
-        bgp.getPattern().add(triple);
-        return service;
-    }
-
 }

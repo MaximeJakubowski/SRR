@@ -43,43 +43,7 @@ public class AlgebraUtils {
         return unionedOp;
     }
 
-    public static List<Op> flattenJoin(Op op) {
-        List<Op> flattenedJoin = new ArrayList<>();
-        flattenJoin_recursive(op, flattenedJoin);
-        return flattenedJoin;
-    }
-
-    private static void flattenJoin_recursive(Op op, List<Op> flattenedJoin) {
-        if (!(op instanceof OpJoin))
-            flattenedJoin.add(op);
-        else {
-            flattenJoin_recursive(((OpJoin) op).getLeft(), flattenedJoin);
-            flattenJoin_recursive(((OpJoin) op).getRight(), flattenedJoin);
-        }
-    }
-
-    public static List<Op> flattenUnion(Op op) {
-        List<Op> flattenedUnion = new ArrayList<>();
-        flattenUnion_recursive(op, flattenedUnion);
-        return flattenedUnion;
-    }
-
-    private static void flattenUnion_recursive(Op op, List<Op> flattenedUnion) {
-        if (!(op instanceof OpUnion))
-            flattenedUnion.add(op);
-        else {
-            flattenUnion_recursive(((OpUnion) op).getLeft(), flattenedUnion);
-            flattenUnion_recursive(((OpUnion) op).getRight(), flattenedUnion);
-        }
-    }
-
     public static Op emptyQuery() {
         return OpFilter.filterBy(new ExprList(new NodeValueBoolean(false)), OpTable.unit());
-    }
-
-    public static Op createBGP(Triple tp) {
-        BasicPattern bp = new BasicPattern();
-        bp.add(tp);
-        return new OpBGP(bp);
     }
 }

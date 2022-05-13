@@ -26,8 +26,6 @@ public abstract class TermMap {
         this.blank = blank;
     }
 
-    private TermMap() {}
-
     public Set<RMLReference> getReferences() {
         return generator.getReferences();
     }

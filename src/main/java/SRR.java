@@ -39,6 +39,7 @@ public class SRR implements Runnable {
                 sourceSet.addAll(parser.getSourceSet());
             } catch (Exception e) {
                 System.out.printf("File %s not found.%n", mappingFilename);
+                System.exit(1);
             }
         }
 
