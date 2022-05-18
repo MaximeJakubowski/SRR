@@ -2,8 +2,6 @@ package model;
 
 import RML.RMLReference;
 import RML.TermMap;
-import org.apache.jena.atlas.lib.NotImplemented;
-import org.apache.jena.atlas.test.Gen;
 import org.apache.jena.graph.BlankNodeId;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
@@ -238,7 +236,7 @@ public class NodeTerm {
                     termList.add(new Atom(String.valueOf(c).toLowerCase()));
             else if (obj instanceof Var)
                 return new Compound(type, new Term[] {
-                        PrologUtils.listtermToDifferenceList(
+                        PrologSAT.listtermToDifferenceList(
                                 Term.termArrayToList(termList.toArray(new Term[0])),
                                 new Variable(((Var) obj).getVarName()))
                 });
@@ -256,10 +254,10 @@ public class NodeTerm {
         if (this.node.isBlank())
             type = "blank";
         if (this.node.isLiteral())
-            return new Compound("literal", new Term[]{ PrologUtils.stringAsCharTermList(this.node.getLiteral().toString()) });
+            return new Compound("literal", new Term[]{ PrologSAT.stringAsCharTermList(this.node.getLiteral().toString()) });
         if (this.node.isURI())
             type = "iri";
-        return new Compound(type, new Term[]{ PrologUtils.stringAsCharTermList(this.node.toString()) });
+        return new Compound(type, new Term[]{ PrologSAT.stringAsCharTermList(this.node.toString()) });
         // TODO proper handling of unknown
     }
 }

@@ -1,12 +1,10 @@
 import RML.*;
 import model.*;
-import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.TransformCopy;
-import org.apache.jena.sparql.algebra.Transformer;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.core.BasicPattern;
 import org.apache.jena.sparql.core.Var;
@@ -17,12 +15,10 @@ import org.jgrapht.Graph;
 import org.jgrapht.alg.connectivity.ConnectivityInspector;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleGraph;
-import org.jpl7.Term;
 
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class Rewriter extends TransformCopy {
     private final Set<Source> sources;
@@ -77,7 +73,8 @@ public class Rewriter extends TransformCopy {
 
 
     private Op buildQuery(Set<List<NodeTerm>> equalityConstraints,
-                          Map<Triple, UnrolledTriplesMap> match, Map<Triple, Map<String, String>> renamings) {
+                          Map<Triple, UnrolledTriplesMap> match,
+                          Map<Triple, Map<String, String>> renamings) {
         List<Set<List<NodeTerm>>> filterBindingEq = getFilterAndBindEqualities(equalityConstraints);
 
         Set<List<NodeTerm>> filterEqualities = filterBindingEq.get(0);
@@ -172,9 +169,7 @@ public class Rewriter extends TransformCopy {
 
     private boolean satisfiableMatching(Set<List<NodeTerm>> equalities) {
         // test with prolog if the equalities can hold
-        org.jpl7.Query goal = PrologUtils.equalityQueryFrom(equalities);
-        Map<String, Term> solution = goal.oneSolution();
-        return solution != null;
+        return PrologSAT.equalityQueryFrom(equalities).hasSolution();
     }
 
     private Op applyRenaming(Map<String, String> renaming, String query) {
@@ -210,8 +205,7 @@ public class Rewriter extends TransformCopy {
 
         List<Map<Triple, UnrolledTriplesMap>> candidates = new ArrayList<>();
         List<List<Integer>> assignmentVectors = generateAssignmentVectors(bp.size(), unrolledTriplesMaps.size());
-        //TODO DEBUG
-        //System.out.printf("THERE ARE %s ASSIGNMENT VECTORS%n", assignmentVectors.size());
+
         for (List<Integer> assignmentVector: assignmentVectors) // minus one because the maxval will function as an index
             candidates.add(createMappingCandidate(bp.getList(), unrolledTriplesMaps, assignmentVector));
 

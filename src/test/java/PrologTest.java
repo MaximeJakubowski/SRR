@@ -1,6 +1,6 @@
 import RML.*;
 import model.NodeTerm;
-import model.PrologUtils;
+import model.PrologSAT;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Node_Literal;
 import org.jpl7.*;
@@ -35,7 +35,7 @@ public class PrologTest {
                 NodeTerm.create(NodeFactory.createURI("http://www.ex.com/hello")),
                 NodeTerm.create(new ReferenceValuedTermMap("o", source,true, false, false))));
 
-        org.jpl7.Query goal = PrologUtils.equalityQueryFrom(pairs);
+        org.jpl7.Query goal = PrologSAT.equalityQueryFrom(pairs);
 
         System.out.println(goal.toString());
     }
@@ -52,7 +52,7 @@ public class PrologTest {
                 NodeTerm.create(NodeFactory.createLiteral("huhh")),
                 NodeTerm.create(new TemplateValuedTermMap("hu{s}", source, false, true, false))));
 
-        org.jpl7.Query goal = PrologUtils.equalityQueryFrom(pairs);
+        org.jpl7.Query goal = PrologSAT.equalityQueryFrom(pairs);
 
         assert goal.hasSolution();
     }
