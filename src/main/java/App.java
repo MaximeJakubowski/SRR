@@ -1,6 +1,5 @@
 import RML.Parser;
 import RML.Source;
-import org.apache.jena.base.Sys;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
@@ -12,7 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @CommandLine.Command(name = "SRR", version = "SRR 1.0", mixinStandardHelpOptions = true)
-public class SRR implements Runnable {
+public class App implements Runnable {
     @CommandLine.Option(
             required = true,
             names = {"-r", "--rewrite"},
@@ -26,7 +25,7 @@ public class SRR implements Runnable {
     private String[] mappingFilenames;
 
     public static void main(String[] args) {
-        int exitCode = new CommandLine(new SRR()).execute(args);
+        int exitCode = new CommandLine(new App()).execute(args);
         System.exit(exitCode);
     }
 
