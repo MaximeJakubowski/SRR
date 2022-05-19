@@ -7,21 +7,31 @@ import org.apache.jena.sparql.algebra.OpAsQuery;
 import org.apache.jena.sparql.algebra.Transformer;
 import picocli.CommandLine;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 
-@CommandLine.Command(name = "SRR", version = "SRR 1.0", mixinStandardHelpOptions = true)
+@CommandLine.Command(name = "srr", version = "ssr 1.0", mixinStandardHelpOptions = true)
 public class App implements Runnable {
     @CommandLine.Option(
-            required = true,
-            names = {"-r", "--rewrite"},
-            description = "SPARQL query string to be rewritten.")
-    private String queryString;
+            names = {"-f", "--queryfile"},
+            description = "<query> is a file containing a SPARQL query.")
+    private boolean queryIsFile;
 
     @CommandLine.Parameters(
-            arity="1..*",
+            index = "0",
+            paramLabel = "<query>",
+            description = "SPARQL query string to be rewritten.")
+    private String query;
+
+
+    @CommandLine.Parameters(
+            index = "1..*",
             paramLabel = "<mappingFiles>",
-            description = "At least one RML file containing the mappings")
+            description = "RML file(s) containing the mappings.")
     private String[] mappingFilenames;
 
     public static void main(String[] args) {
@@ -31,6 +41,18 @@ public class App implements Runnable {
 
     @Override
     public void run() {
+        String queryString = query;
+        if (queryIsFile)
+            try {
+                queryString = Files.readString(Paths.get(query));
+            } catch (Exception e) {
+                System.out.println("File %s not found.%n");
+            }
+
+        if (mappingFilenames == null)
+            System.out.println(queryString);
+
+
         Set<Source> sourceSet = new HashSet<>();
         for (String mappingFilename: mappingFilenames) {
             try {
