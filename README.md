@@ -4,6 +4,10 @@ and given a SPARQL query formulated in terms of the target RDF data, rewrite the
 SPARQL query to a SPARQL query formulated in terms of the source RDF data.
 
 ## Usage
+### Docker
+Create a Docker image and run it based on the provided Dockerfile.
+
+### Compiling
 Build with Maven:
 
 `mvn clean package`. 
