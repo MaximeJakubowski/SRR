@@ -5,6 +5,7 @@ import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.TransformCopy;
+import org.apache.jena.sparql.algebra.Transformer;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.core.BasicPattern;
 import org.apache.jena.sparql.core.Var;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 public class Rewriter extends TransformCopy {
     private final Set<Source> sources;
     private int variableCounter = 0;
+    private int blankCounter = 0;
 
     public Rewriter(Set<Source> sources) {
         this.sources = sources;
@@ -43,11 +45,11 @@ public class Rewriter extends TransformCopy {
     private Op createRewrittenBGP(Map<Triple, UnrolledTriplesMap> candidate) {
         Set<List<NodeTerm>> equalityConstraints = new HashSet<>();
 
-        Map<Triple, Map<String, String>> renamings = new HashMap<>();
+        Map<Triple, Map<String, String>> variableRenamings = new HashMap<>();
 
         for (Triple tp : candidate.keySet()) {
             Map<String, String> renaming = renameVariablesFresh(candidate.get(tp));
-            renamings.put(tp, renaming); // remember renaming for every triple
+            variableRenamings.put(tp, renaming); // remember renaming for every triple
 
             equalityConstraints.add(Arrays.asList(
                     NodeTerm.create(tp.getSubject()),
@@ -68,30 +70,35 @@ public class Rewriter extends TransformCopy {
         if (!satisfiableMatching(equalityConstraints))
             return null; // Jena: OpUnion.create(...) drops null (as does join)
 
-        return buildQuery(equalityConstraints, candidate, renamings);
+        return buildQuery(equalityConstraints, candidate, variableRenamings);
     }
 
 
     private Op buildQuery(Set<List<NodeTerm>> equalityConstraints,
                           Map<Triple, UnrolledTriplesMap> match,
-                          Map<Triple, Map<String, String>> renamings) {
+                          Map<Triple, Map<String, String>> variableRenamings) {
         List<Set<List<NodeTerm>>> filterBindingEq = getFilterAndBindEqualities(equalityConstraints);
 
         Set<List<NodeTerm>> filterEqualities = filterBindingEq.get(0);
         Set<List<NodeTerm>> bindingEqualities = filterBindingEq.get(1);
 
         Set<Op> tojoin = new HashSet<>();
-        for (Triple tp : match.keySet())
-            tojoin.add(applyRenaming(
-                    renamings.get(tp),
+        for (Triple tp : match.keySet()) {
+            Op varRenamed = applyVariableRenaming(
+                    variableRenamings.get(tp),
                     ((SPARQLSource) match.get(tp).getSource()).getQuery().getQueryString()
-            ));
+            );
+            BlankRenamer blren = new BlankRenamer(this.blankCounter);
+            Op blanksRefreshed = Transformer.transform(blren, varRenamed);
+            this.blankCounter = blren.getBlankCounter();
+            tojoin.add(blanksRefreshed);
+        }
 
         Op rewrittenBGP = OpFilter.filterBy(
                 createFilterEqualities(filterEqualities),
                 AlgebraUtils.makeJoin(tojoin));
         // if no vars, select *; otherwise select vars(renaming)
-        if (renamings.values().stream().allMatch(renaming -> renaming.keySet().isEmpty())) //there were no variables
+        if (variableRenamings.values().stream().allMatch(renaming -> renaming.keySet().isEmpty())) //there were no variables
             return rewrittenBGP;
 
         return createProjectionRenaming(bindingEqualities, rewrittenBGP);
@@ -172,14 +179,13 @@ public class Rewriter extends TransformCopy {
         return PrologSAT.equalityQueryFrom(equalities).hasSolution();
     }
 
-    private Op applyRenaming(Map<String, String> renaming, String query) {
+    private Op applyVariableRenaming(Map<String, String> renaming, String query) {
         Map<Var, Var> varrename = new HashMap<>();
         for (String key: renaming.keySet())
             varrename.put(Var.alloc(key), Var.alloc(renaming.get(key)));
 
         return Algebra.compile(QueryTransformOps.transform(QueryFactory.create(query), varrename));
     }
-
 
     private Map<String, String> renameVariablesFresh(UnrolledTriplesMap tmap) {
         Map<String, String> renaming = new HashMap<>();

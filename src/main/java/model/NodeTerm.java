@@ -17,6 +17,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static model.AlgebraUtils.isJenaBlank;
+import static model.AlgebraUtils.isJenaVariable;
+
 /*
 * Represents a Node or a Term.
 * Terms are often nodes,
@@ -57,7 +60,7 @@ public class NodeTerm {
         this.node = node;
         this.structure = null;
 
-        if (node.isVariable())
+        if (isJenaVariable(node))
             this.type = GenType.ANY;
         else if (node.isURI())
             this.type = GenType.URI;
@@ -93,7 +96,7 @@ public class NodeTerm {
     }
 
     public boolean isVariable() {
-        return (this.node != null && this.node.isVariable()) ||
+        return (this.node != null && isJenaVariable(this.node)) ||
                 (this.structure != null &&
                         this.structure.size() == 1 &&
                         this.structure.get(0) instanceof Var); // depends heavily on lazy evaluation
@@ -168,7 +171,7 @@ public class NodeTerm {
 
     public NodeTerm renamed(Map<String, String> renaming) {
         if (this.node != null)
-            if (this.node.isVariable() && renaming.containsKey(this.node.getName()))
+            if (isJenaVariable(this.node) && renaming.containsKey(this.node.getName()))
                 return new NodeTerm(Var.alloc(renaming.get(this.node.getName())));
             else
                 return this;
@@ -192,7 +195,7 @@ public class NodeTerm {
         // If we can consider this a node
         if (this.isNode()) {
             Node node = this.asNode();
-            if (node.isVariable())
+            if (isJenaVariable(node))
                 return new ExprVar(Var.alloc(node));
 
             // for blank nodes, also NodeValue.makeNode(node)
@@ -209,7 +212,7 @@ public class NodeTerm {
             if (obj instanceof String)
                 exprList.add(new NodeValueString((String) obj));
             else
-                exprList.add(new ExprVar((Var) obj));
+                exprList.add(new E_Str(new ExprVar((Var) obj)));
 
         E_StrConcat concat = new E_StrConcat(exprList);
         if (this.type == GenType.URI)
@@ -247,11 +250,11 @@ public class NodeTerm {
     private Term nodeToTerm() {
         // TODO check if this is a good enough approach: do we ever get in trouble?
         // especially relating to the handing of the case of a variable node
-        if (this.node.isVariable())
+        if (isJenaVariable(this.node))
             return new Variable(node.getName()); // important: node.getName() != node.toString()
 
         String type = "unknown";
-        if (this.node.isBlank())
+        if (isJenaBlank(this.node))
             type = "blank";
         if (this.node.isLiteral())
             return new Compound("literal", new Term[]{ PrologSAT.stringAsCharTermList(this.node.getLiteral().toString()) });

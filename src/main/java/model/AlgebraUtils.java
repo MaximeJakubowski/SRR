@@ -1,5 +1,6 @@
 package model;
 
+import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.op.*;
@@ -45,5 +46,16 @@ public class AlgebraUtils {
 
     public static Op emptyQuery() {
         return OpFilter.filterBy(new ExprList(new NodeValueBoolean(false)), OpTable.unit());
+    }
+
+    public static boolean isJenaVariable(Node n) {
+        return n.isVariable() && !isJenaBlank(n);
+    }
+
+    public static boolean isJenaBlank(Node n) {
+        // .isBlank() is bronken in jena ARQ. Blank nodes in a SPARQL query are considered variables
+        if (!n.isVariable())
+            return false;
+        return n.getName().startsWith("?");
     }
 }
