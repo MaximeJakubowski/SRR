@@ -59,7 +59,8 @@ public class App implements Runnable {
                 Parser parser = new Parser(mappingFilename);
                 sourceSet.addAll(parser.getSourceSet());
             } catch (Exception e) {
-                System.out.printf("File %s not found.%n", mappingFilename);
+                e.printStackTrace();
+                //System.out.printf("File %s not found.%n", mappingFilename);
                 System.exit(1);
             }
         }
