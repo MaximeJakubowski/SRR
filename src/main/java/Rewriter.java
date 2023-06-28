@@ -1,5 +1,6 @@
 import RML.*;
 import model.*;
+import org.apache.jena.base.Sys;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.algebra.Algebra;
@@ -176,7 +177,7 @@ public class Rewriter extends TransformCopy {
 
     private boolean satisfiableMatching(Set<List<NodeTerm>> equalities) {
         // test with prolog if the equalities can hold
-        return PrologSAT.equalityQueryFrom(equalities).hasSolution();
+        return PrologSAT.isSAT(equalities);
     }
 
     private Op applyVariableRenaming(Map<String, String> renaming, String query) {

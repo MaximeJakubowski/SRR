@@ -1,9 +1,10 @@
 package model;
 
+import org.apache.jena.base.Sys;
 import org.jpl7.*;
 import java.util.*;
 
-public class PrologSAT implements EqualitySAT {
+public class PrologSAT {
 
     public static Query equalityQueryFrom(Set<List<NodeTerm>> equalities) {
         List<List<Term>> pairs = new ArrayList<>();
@@ -41,8 +42,7 @@ public class PrologSAT implements EqualitySAT {
         return new Compound("[|]", new Term[] { term.arg(1), newterm });
     }
 
-    @Override
-    public boolean isSAT(Set<List<NodeTerm>> equalities) {
+    public static boolean isSAT(Set<List<NodeTerm>> equalities) {
         return equalityQueryFrom(equalities).hasSolution();
     }
 }
