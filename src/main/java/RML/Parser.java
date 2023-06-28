@@ -50,7 +50,7 @@ public class Parser {
         Property logicalSourceProperty = new PropertyImpl("http://semweb.mmlab.be/ns/rml#logicalSource");
         // copy `source` variable into a new "effectively final" variable that can be used in the `res ->` lambda
         Source finalSource = source;
-        model.listSubjectsWithProperty(logicalSourceProperty).forEachRemaining(
+        model.listSubjectsWithProperty(logicalSourceProperty, logicalSourceNode).forEachRemaining(
                 res -> finalSource.getTriplesMaps().add(parseTriplesMap(res, finalSource)));
 
         return source;

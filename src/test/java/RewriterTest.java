@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.junit.Assert.assertEquals;
+
 public class RewriterTest {
 
     void rewriteTest (String filename, String inputquery) {
@@ -54,6 +56,7 @@ public class RewriterTest {
         System.out.println("REWRITTEN QUERY:\n===============");
         System.out.println(OpAsQuery.asQuery(rewrittenQuery));
     }
+
 
     /**
      * Simple tests
@@ -116,6 +119,16 @@ public class RewriterTest {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @Test
+    public void testMaartenBugTest() {
+        String userQuery =
+                "prefix schema: <http://schema.org/> \n" +
+                        "SELECT ?p \n" +
+                        "WHERE {?p a schema:Person}";
+
+        rewriteTest("src/test/resources/maarten.rml.ttl", userQuery);
     }
 
 }
