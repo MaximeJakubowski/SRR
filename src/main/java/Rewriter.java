@@ -52,28 +52,38 @@ public class Rewriter extends TransformCopy {
             Map<String, String> renaming = renameVariablesFresh(candidate.get(tp));
             variableRenamings.put(tp, renaming); // remember renaming for every triple
 
-            equalityConstraints.add(Arrays.asList(
+            List<NodeTerm> equality = Arrays.asList(
                     NodeTerm.create(tp.getSubject()),
-                    NodeTerm.create(candidate.get(tp).getSubjectMap()).renamed(renaming))
-            );
+                    NodeTerm.create(candidate.get(tp).getSubjectMap()).renamed(renaming));
+            // Optimization handled here instead of in SAT module
+            if (equality.get(0).trivialNotEqual(equality.get(1)))
+                return null; //unsat
 
-            equalityConstraints.add(Arrays.asList(
+            equalityConstraints.add(equality);
+
+            equality = Arrays.asList(
                     NodeTerm.create(tp.getPredicate()),
-                    NodeTerm.create(candidate.get(tp).getPredicateObjectMap().getPredicate()).renamed(renaming))
-            );
+                    NodeTerm.create(candidate.get(tp).getPredicateObjectMap().getPredicate()).renamed(renaming));
+            // Optimization handled here instead of in SAT module
+            if (equality.get(0).trivialNotEqual(equality.get(1)))
+                return null;
 
-            equalityConstraints.add(Arrays.asList(
+            equalityConstraints.add(equality);
+
+            equality = Arrays.asList(
                     NodeTerm.create(tp.getObject()),
-                    NodeTerm.create(candidate.get(tp).getPredicateObjectMap().getObject()).renamed(renaming))
-            );
+                    NodeTerm.create(candidate.get(tp).getPredicateObjectMap().getObject()).renamed(renaming));
+            // Optimization handled here instead of in SAT module
+            if (equality.get(0).trivialNotEqual(equality.get(1)))
+                return null;
+
+            equalityConstraints.add(equality);
         }
 
-        //System.out.println("Starting SAT...");
         if (!satisfiableMatching(equalityConstraints)) {
-            //System.out.println("Not SAT...");
             return null; // Jena: OpUnion.create(...) drops null (as does join)
         }
-        //System.out.println("SAT!");
+
         return buildQuery(equalityConstraints, candidate, variableRenamings);
     }
 

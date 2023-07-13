@@ -2,6 +2,7 @@ package model;
 
 import RML.RMLReference;
 import RML.TermMap;
+import org.apache.jena.base.Sys;
 import org.apache.jena.graph.BlankNodeId;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
@@ -104,6 +105,16 @@ public class NodeTerm {
 
     public boolean isNode() {
         return isConcrete() || isVariable();
+    }
+
+    public boolean trivialNotEqual(NodeTerm other) {
+        // used for eliminating many equalitycandidates
+        // if we know that two nodes are not the same "symbols" then
+        // we can skip sat checking
+        if (this.isConcrete() && other.isConcrete() && this.isIRI() && other.isIRI()) {
+            return ! this.node.equals(other.asNode()) ;
+        }
+        return false;
     }
 
     @Override
