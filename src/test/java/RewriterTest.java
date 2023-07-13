@@ -1,12 +1,17 @@
 import RML.*;
 import model.NodeTerm;
 import model.UnrolledTriplesMap;
+import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.OpAsQuery;
 import org.apache.jena.sparql.algebra.Transformer;
+import org.apache.jena.sparql.algebra.op.OpExtend;
+import org.apache.jena.sparql.algebra.op.OpProject;
 import org.apache.jena.sparql.core.Var;
+import org.apache.jena.sparql.core.VarExprList;
+import org.apache.jena.sparql.expr.ExprVar;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleGraph;
@@ -48,12 +53,20 @@ public class RewriterTest {
                     System.out.println();
                 }
 
-        Op userquery = Algebra.compile(QueryFactory.create(inputquery));
+        Query queryInputQuery = QueryFactory.create(inputquery);
+        Op userquery = Algebra.compile(queryInputQuery);
         Op rewrittenQuery = Transformer.transform(new Rewriter(parser.getSourceSet()), userquery);
-
+        VarExprList proj = queryInputQuery.getProject();
+        if (proj.size() == proj.getVars().size()) {
+            List<Var> projvars = new ArrayList<>();
+            proj.forEachVar(projvars::add);
+            rewrittenQuery = new OpProject(rewrittenQuery, projvars);
+        }
         System.out.println("\nINPUT QUERY:\n============");
+        System.out.println(userquery.toString());
         System.out.println(OpAsQuery.asQuery(userquery));
         System.out.println("REWRITTEN QUERY:\n===============");
+        System.out.println(rewrittenQuery.toString());
         System.out.println(OpAsQuery.asQuery(rewrittenQuery));
     }
 
@@ -136,7 +149,7 @@ public class RewriterTest {
         String userQuery =
                 "prefix schema: <http://schema.org/> \n" +
                         "SELECT * \n" +
-                        "WHERE {?p a schema:Person}";
+                        "WHERE {?p a ?q}";
 
         rewriteTest("src/test/resources/maarten.rml.ttl", userQuery);
     }

@@ -1,17 +1,23 @@
 import RML.Parser;
 import RML.Source;
+import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.OpAsQuery;
 import org.apache.jena.sparql.algebra.Transformer;
+import org.apache.jena.sparql.algebra.op.OpProject;
+import org.apache.jena.sparql.core.Var;
+import org.apache.jena.sparql.core.VarExprList;
 import picocli.CommandLine;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @CommandLine.Command(name = "srr", version = "ssr 1.0", mixinStandardHelpOptions = true)
@@ -60,17 +66,22 @@ public class App implements Runnable {
                 sourceSet.addAll(parser.getSourceSet());
             } catch (Exception e) {
                 e.printStackTrace();
-                //System.out.printf("File %s not found.%n", mappingFilename);
                 System.exit(1);
             }
         }
 
-        Op userquery = Algebra.compile(QueryFactory.create(queryString));
+        Query queryInputQuery = QueryFactory.create(queryString);
+        Op userquery = Algebra.compile(queryInputQuery);
 
-        //long start2 = System.currentTimeMillis();
         Op rewrittenQuery = Transformer.transform(new Rewriter(sourceSet), userquery);
-        //long end2 = System.currentTimeMillis();
-        //System.out.println("Elapsed Time in milli seconds: "+ (end2-start2));
+
+        // Use the original projection, i.e., eliminate 'select star' bug
+        VarExprList proj = queryInputQuery.getProject();
+        if (proj.size() == proj.getVars().size()) {
+            List<Var> projvars = new ArrayList<>();
+            proj.forEachVar(projvars::add);
+            rewrittenQuery = new OpProject(rewrittenQuery, projvars);
+        }
 
         System.out.println(OpAsQuery.asQuery(rewrittenQuery));
     }
