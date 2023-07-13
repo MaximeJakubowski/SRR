@@ -131,4 +131,14 @@ public class RewriterTest {
         rewriteTest("src/test/resources/maarten.rml.ttl", userQuery);
     }
 
+    @Test
+    public void sterretjeBugTest() {
+        String userQuery =
+                "prefix schema: <http://schema.org/> \n" +
+                        "SELECT * \n" +
+                        "WHERE {?p a schema:Person}";
+
+        rewriteTest("src/test/resources/maarten.rml.ttl", userQuery);
+    }
+
 }

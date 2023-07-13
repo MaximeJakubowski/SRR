@@ -67,7 +67,10 @@ public class App implements Runnable {
 
         Op userquery = Algebra.compile(QueryFactory.create(queryString));
 
+        //long start2 = System.currentTimeMillis();
         Op rewrittenQuery = Transformer.transform(new Rewriter(sourceSet), userquery);
+        //long end2 = System.currentTimeMillis();
+        //System.out.println("Elapsed Time in milli seconds: "+ (end2-start2));
 
         System.out.println(OpAsQuery.asQuery(rewrittenQuery));
     }

@@ -68,9 +68,12 @@ public class Rewriter extends TransformCopy {
             );
         }
 
-        if (!satisfiableMatching(equalityConstraints))
+        //System.out.println("Starting SAT...");
+        if (!satisfiableMatching(equalityConstraints)) {
+            //System.out.println("Not SAT...");
             return null; // Jena: OpUnion.create(...) drops null (as does join)
-
+        }
+        //System.out.println("SAT!");
         return buildQuery(equalityConstraints, candidate, variableRenamings);
     }
 
