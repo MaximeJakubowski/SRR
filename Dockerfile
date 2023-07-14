@@ -1,5 +1,5 @@
 FROM ubuntu:latest
-COPY target/SRR-1.0-SNAPSHOT-jar-with-dependencies.jar /srrapp/SRR.jar
+COPY target/SRR-1.1-SNAPSHOT-jar-with-dependencies.jar /srrapp/SRR.jar
 
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends openjdk-19-jre

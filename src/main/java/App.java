@@ -75,14 +75,18 @@ public class App implements Runnable {
 
         Op rewrittenQuery = Transformer.transform(new Rewriter(sourceSet), userquery);
 
+        Query queryRewrittenQuery = OpAsQuery.asQuery(rewrittenQuery);
+
         // Use the original projection, i.e., eliminate 'select star' bug
         VarExprList proj = queryInputQuery.getProject();
-        if (proj.size() == proj.getVars().size()) {
+        if (proj.size() == proj.getVars().size() && // the projection contains no expressions
+                queryRewrittenQuery.getProject().size() != proj.size()) { // the projection of the input is different from the projection of the rewriting
             List<Var> projvars = new ArrayList<>();
-            proj.forEachVar(projvars::add);
+            proj.forEachVar(projvars::add); // create a new projection
             rewrittenQuery = new OpProject(rewrittenQuery, projvars);
+            queryRewrittenQuery = OpAsQuery.asQuery(rewrittenQuery);
         }
 
-        System.out.println(OpAsQuery.asQuery(rewrittenQuery));
+        System.out.println(queryRewrittenQuery);
     }
 }
